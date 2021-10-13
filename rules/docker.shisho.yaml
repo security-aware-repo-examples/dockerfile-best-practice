@@ -85,9 +85,10 @@ rules:
       RUN :[CMD]
     constraints:
       - target: CMD
-        should: match-regex
-        pattern: |
-          (curl|wget)[^|^>]*[|>]
+        should: match-any-of
+        regex-patterns:
+          - curl[^|^>]*[|>]
+          - wget[^|^>]*[|>]
   - id: "use-copy-instead-of-add"
     title: Use COPY instead of ADD
     language: dockerfile
