@@ -1,0 +1,97 @@
+version: "1"
+rules:
+  - id: "use-fixed-tags-for-immutablity"
+    title: Use fixed tags instead of `latest` tags
+    language: dockerfile
+    message: |
+      The use of `latest` tag might cause confusion and inconsistent behavior in automated builds. It is better to pin the version of your base images.
+    patterns:
+      - pattern: FROM :[IMAGE]
+      - pattern: FROM :[IMAGE] as :[ALIAS]
+      - pattern: FROM :[IMAGE]:latest
+      - pattern: FROM :[IMAGE]:latest as :[ALIAS]
+      - pattern: FROM :[IMAGE]@:[HASH]
+      - pattern: FROM :[IMAGE]@:[HASH] as :[ALIAS]
+      - pattern: FROM :[IMAGE]:latest@:[HASH]
+      - pattern: FROM :[IMAGE]:latest@:[HASH] as :[ALIAS]
+  - id: "remove-cache-of-apt-get"
+    title: Remove cache files for apt
+    language: dockerfile
+    message: |
+      It is better to remove cache files of `apt-get` to keep your image slim.
+    pattern: |
+      RUN apt-get install :[X]
+    rewrite: |
+      RUN apt-get update && \
+          apt-get install :[X] && \
+          rm -rf /var/lib/apt/lists/*
+  - id: "use-no-install-recommends-flag-apt-get"
+    title: Avoid to install unnecessary packages with `--no-install-recommends` flag
+    language: dockerfile
+    message: |
+      You can avoid to install any unnecessary packages by `--no-install-recommends` on `apt-get`.
+    patterns:
+      - pattern: |
+          RUN apt-get install :[...X]
+      - pattern: |
+          RUN :[...Y] apt-get install :[...X]
+    constraints:
+      - target: X
+        should: not-match
+        regex-pattern: ".*--no-install-recommends.*"
+    rewrite_options:
+      - |
+        RUN :[Y] apt-get install --no-install-recommends :[X]
+  - id: "avoid-to-store-secrets-in-env"
+    title: Avoid to store secrets in `ENV` instructions
+    language: dockerfile
+    message: |
+      Hardcoded secrets in your Dockerfile will be stored in resulting images. Please consider to stop embedding the secrets.
+    pattern: |
+      ENV :[...] :[KEY]=:[VALUE] :[...]
+    constraints:
+      - target: KEY
+        should: match-any-of
+        regex-patterns:
+          - "[sS][eE][cC][rR][eE][tT]"
+          - "[tT][oO][kK][eE][nN]"
+          # ... add as you like ...
+  - id: "use-trusted-base-images"
+    title: Use trusted base images
+    language: dockerfile
+    message: |
+      It is better to use trusted base images to reduce the risk of supply chain attacks.
+    patterns:
+      - pattern: FROM :[IMAGE]
+      - pattern: FROM :[IMAGE] as :[ALIAS]
+      - pattern: FROM :[IMAGE]::[TAG]
+      - pattern: FROM :[IMAGE]::[TAG] as :[ALIAS]
+      - pattern: FROM :[IMAGE]@:[HASH]
+      - pattern: FROM :[IMAGE]@:[HASH] as :[ALIAS]
+      - pattern: FROM :[IMAGE]::[TAG]@:[HASH]
+      - pattern: FROM :[IMAGE]::[TAG]@:[HASH] as :[ALIAS]
+    constraints:
+      - target: IMAGE
+        should: not-match-any-of
+        regex-patterns:
+          - "^[^/]+$"
+          - "^image-name/you-trust$"
+  - id: "check-integrity-of-downloaded-shell-script"
+    title: Check the integrity of downloaded shell scripts
+    language: dockerfile
+    message: |
+      It is better to check the integrity of what you download before running it as a shell script.
+    pattern: |
+      RUN :[CMD]
+    constraints:
+      - target: CMD
+        should: match-regex
+        pattern: |
+          (curl|wget)[^|^>]*[|>]
+  - id: "use-copy-instead-of-add"
+    title: Use COPY instead of ADD
+    language: dockerfile
+    message: |
+      ADD instruction allows us to fetch resources over network and extract an archive, but it may cause security issues such as Meet-in-the-Middle (MITM) attacks or Zip Slip vulnerabilities.
+    pattern: ADD :[FROM] :[TO]
+    rewrite: COPY :[FROM] :[TO]

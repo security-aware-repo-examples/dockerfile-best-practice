@@ -1,0 +1,7 @@
+FROM myob/node
+
+ENV SECRET_KEY="13h0gn43pgu801"
+RUN apt-get install -y mysql-client
+
+ADD http://shisho.example/example.tar .
+RUN curl https://shisho.example/script.sh | sh
